@@ -35,6 +35,16 @@ function initial(): StreamsState {
   return { order: [], map: new Map(), eventsByStream: new Map() }
 }
 
+function isEmptyState(state: StreamsState): boolean {
+  return state.order.length === 0 && state.map.size === 0
+}
+
+function applyMessages(prev: StreamsState, messages: CaptureMessage[]): StreamsState {
+  let next = prev
+  for (const msg of messages) next = applyMessage(next, msg)
+  return next
+}
+
 function applyMessage(prev: StreamsState, msg: CaptureMessage): StreamsState {
   if (msg.kind === "stream-open") {
     if (prev.map.has(msg.streamId)) return prev
@@ -64,6 +74,9 @@ function applyMessage(prev: StreamsState, msg: CaptureMessage): StreamsState {
     const existing = prev.map.get(ev.streamId)
     const eventsByStream = new Map(prev.eventsByStream)
     const arr = eventsByStream.get(ev.streamId) ?? []
+    if (arr.some((item) => item.eventId === ev.eventId)) {
+      return prev
+    }
     eventsByStream.set(ev.streamId, [...arr, ev])
     const map = new Map(prev.map)
     if (existing) {
@@ -95,40 +108,69 @@ export function useCapturedEvents() {
   const pausedRef = useRef(paused)
   pausedRef.current = paused
   const portRef = useRef<chrome.runtime.Port | null>(null)
+  const reconnectTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     const tabId = chrome.devtools.inspectedWindow.tabId
-    const port = connectToBackground(tabId)
-    portRef.current = port
+    let disposed = false
 
-    const onMessage = (inbound: unknown) => {
-      if (!inbound || typeof inbound !== "object") return
-      const kind = (inbound as { kind?: string }).kind
-      if (kind === "backlog") {
-        const { messages } = inbound as { messages: CaptureMessage[] }
-        setState(() => {
-          let next = initial()
-          for (const m of messages) next = applyMessage(next, m)
-          return next
-        })
-        return
-      }
-      if (pausedRef.current) return
-      if (
-        kind === "stream-open" ||
-        kind === "stream-event" ||
-        kind === "stream-close"
-      ) {
-        setState((prev) => applyMessage(prev, inbound as CaptureMessage))
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
       }
     }
 
-    port.onMessage.addListener(onMessage)
+    const connect = () => {
+      if (disposed) return
 
-    const onDisconnect = () => {
-      portRef.current = null
+      const port = connectToBackground(tabId)
+      portRef.current = port
+
+      const onMessage = (inbound: unknown) => {
+        if (!inbound || typeof inbound !== "object") return
+        const kind = (inbound as { kind?: string }).kind
+        if (kind === "backlog") {
+          const { messages } = inbound as { messages: CaptureMessage[] }
+          setState((prev) => {
+            if (messages.length === 0) {
+              return prev
+            }
+            if (isEmptyState(prev)) {
+              return applyMessages(initial(), messages)
+            }
+            return applyMessages(prev, messages)
+          })
+          return
+        }
+        if (pausedRef.current) return
+        if (
+          kind === "stream-open" ||
+          kind === "stream-event" ||
+          kind === "stream-close"
+        ) {
+          setState((prev) => applyMessage(prev, inbound as CaptureMessage))
+        }
+      }
+
+      const onDisconnect = () => {
+        if (portRef.current === port) {
+          portRef.current = null
+        }
+        if (disposed) return
+        clearReconnectTimer()
+        reconnectTimerRef.current = window.setTimeout(() => {
+          reconnectTimerRef.current = null
+          connect()
+        }, 250)
+      }
+
+      port.onMessage.addListener(onMessage)
+      port.onDisconnect.addListener(onDisconnect)
+      sendToBackground(port, { kind: "panel-ready" })
     }
-    port.onDisconnect.addListener(onDisconnect)
+
+    connect()
 
     const reloadHandler = () => {
       setState(initial())
@@ -136,12 +178,15 @@ export function useCapturedEvents() {
     chrome.devtools.network.onNavigated.addListener(reloadHandler)
 
     return () => {
+      disposed = true
+      clearReconnectTimer()
       chrome.devtools.network.onNavigated.removeListener(reloadHandler)
       try {
-        port.disconnect()
+        portRef.current?.disconnect()
       } catch {
         // ignore
       }
+      portRef.current = null
     }
   }, [])
 

@@ -1,5 +1,16 @@
-node_modules
-dist
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Chrome extension packaging artifacts
+*.crx
+*.pem
+
+# Local environment files
+.env
+.env.*
+
+# OS / tooling
 .DS_Store
 *.log
-.vite

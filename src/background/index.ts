@@ -86,6 +86,18 @@ function clearBuffer(tabId: number) {
   buffers.delete(tabId)
 }
 
+function sendBacklog(port: chrome.runtime.Port, tabId: number) {
+  const backlog: PanelBacklog = {
+    kind: "backlog",
+    messages: buffers.get(tabId) ?? [],
+  }
+  try {
+    port.postMessage(backlog)
+  } catch {
+    // port may already be gone
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender) => {
   const tabId = sender.tab?.id
   if (typeof tabId !== "number") return
@@ -107,19 +119,11 @@ chrome.runtime.onConnect.addListener((port) => {
   }
   ports.add(port)
 
-  const backlog: PanelBacklog = {
-    kind: "backlog",
-    messages: buffers.get(tabId) ?? [],
-  }
-  try {
-    port.postMessage(backlog)
-  } catch {
-    // port may be closed immediately
-  }
-
   port.onMessage.addListener((outbound: PanelOutbound) => {
     if (!outbound || typeof outbound !== "object") return
-    if (outbound.kind === "clear") {
+    if (outbound.kind === "panel-ready") {
+      sendBacklog(port, tabId)
+    } else if (outbound.kind === "clear") {
       clearBuffer(tabId)
     } else if (outbound.kind === "delete-stream") {
       const buf = buffers.get(tabId)

@@ -45,6 +45,10 @@ export interface PanelBacklog {
   messages: CaptureMessage[]
 }
 
+export interface PanelReady {
+  kind: "panel-ready"
+}
+
 export interface PanelClear {
   kind: "clear"
 }
@@ -54,7 +58,7 @@ export interface PanelDeleteStream {
   streamId: string
 }
 
-export type PanelOutbound = PanelClear | PanelDeleteStream
+export type PanelOutbound = PanelReady | PanelClear | PanelDeleteStream
 export type PanelInbound = PanelBacklog | CaptureMessage
 
 export const BRIDGE_SOURCE = "sse-viewer"
