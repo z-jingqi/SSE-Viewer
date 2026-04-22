@@ -34,58 +34,6 @@ async function copyToClipboard(text: string) {
   }
 }
 
-function stringifyForCopy(value: unknown, fallback = "") {
-  if (value === undefined) return fallback
-  if (typeof value === "string") return value
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
-}
-
-function formatAssembledForCopy(
-  transcript: ReturnType<typeof assembleTranscript>
-): string {
-  const parts: string[] = []
-
-  if (transcript.text) {
-    parts.push(transcript.text)
-  }
-
-  if (transcript.toolCalls.length > 0) {
-    if (parts.length > 0) parts.push("")
-    parts.push("Tool calls:")
-    transcript.toolCalls.forEach((tc, idx) => {
-      parts.push(`- ${tc.name || `(unnamed #${idx + 1})`}`)
-      if (tc.arguments || tc.argumentsParsed !== undefined) {
-        parts.push(`  Arguments:`)
-        parts.push(
-          stringifyForCopy(tc.argumentsParsed ?? tc.arguments, "(no arguments yet)")
-            .split("\n")
-            .map((line) => `  ${line}`)
-            .join("\n")
-        )
-      }
-      if (tc.result !== undefined || tc.resultParsed !== undefined) {
-        parts.push(`  Result:`)
-        parts.push(
-          stringifyForCopy(tc.resultParsed ?? tc.result)
-            .split("\n")
-            .map((line) => `  ${line}`)
-            .join("\n")
-        )
-      }
-    })
-  }
-
-  if (parts.length === 0) {
-    return transcript.rawConcat || "(no events yet)"
-  }
-
-  return parts.join("\n")
-}
-
 function StatusBadge({ status }: { status?: number }) {
   if (typeof status !== "number") {
     return (
@@ -315,8 +263,9 @@ function AssembledView({ events }: { events: StreamEventMessage[] }) {
   const [copied, setCopied] = useState(false)
   const hasContent =
     transcript.text.length > 0 || transcript.toolCalls.length > 0
+  const canCopyText = transcript.text.length > 0
   const onCopy = async () => {
-    const ok = await copyToClipboard(formatAssembledForCopy(transcript))
+    const ok = await copyToClipboard(transcript.text)
     if (ok) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1200)
@@ -333,7 +282,13 @@ function AssembledView({ events }: { events: StreamEventMessage[] }) {
         ) : (
           <div />
         )}
-        <Button size="sm" variant="ghost" onClick={onCopy}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onCopy}
+          disabled={!canCopyText}
+          title={canCopyText ? "Copy text" : "No assembled text to copy"}
+        >
           {copied ? <Check /> : <Copy />}
           {copied ? "Copied" : "Copy"}
         </Button>
