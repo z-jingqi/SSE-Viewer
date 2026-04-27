@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import {
+  AlertTriangle,
   ChevronDown,
   Circle,
   Download,
@@ -39,6 +40,9 @@ interface ToolbarProps {
   onClearTools: () => void
   onlyWithTools: boolean
   onToggleOnlyWithTools: () => void
+  onlyErrors: boolean
+  onToggleOnlyErrors: () => void
+  errorCount: number
   streamCount: number
   eventCount: number
 }
@@ -62,6 +66,9 @@ export function Toolbar({
   onClearTools,
   onlyWithTools,
   onToggleOnlyWithTools,
+  onlyErrors,
+  onToggleOnlyErrors,
+  errorCount,
   streamCount,
   eventCount,
 }: ToolbarProps) {
@@ -215,6 +222,26 @@ export function Toolbar({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {errorCount > 0 && (
+        <Button
+          variant="outline"
+          size="default"
+          onClick={onToggleOnlyErrors}
+          className={cn(
+            "h-6 gap-1 font-normal",
+            onlyErrors && "border-destructive/40 text-destructive"
+          )}
+          title={
+            onlyErrors
+              ? "Showing errors only — click to clear"
+              : `${errorCount} error${errorCount === 1 ? "" : "s"} — click to filter`
+          }
+        >
+          <AlertTriangle className="size-3" />
+          <span className="text-[11px] tabular-nums">{errorCount}</span>
+        </Button>
+      )}
 
       <Input
         placeholder="Search payloads…"

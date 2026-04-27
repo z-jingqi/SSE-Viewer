@@ -6,6 +6,7 @@ coverage/
 # Chrome extension packaging artifacts
 *.crx
 *.pem
+sse-viewer-*.zip
 
 # Local environment files
 .env

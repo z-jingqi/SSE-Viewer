@@ -5,6 +5,7 @@ import {
   eventMatchesTools,
   getToolNames,
 } from "./lib/tool-detect"
+import { eventIsError } from "./lib/error-detect"
 import { getSearchableText } from "./lib/search"
 import { Toolbar } from "./components/Toolbar"
 import { StreamList } from "./components/StreamList"
@@ -51,6 +52,7 @@ export function App() {
     () => new Set()
   )
   const [onlyWithTools, setOnlyWithTools] = useState(false)
+  const [onlyErrors, setOnlyErrors] = useState(false)
   const [labels, setLabels] = useState<Map<string, string>>(() => new Map())
 
   const renameStream = (streamId: string, label: string) => {
@@ -105,6 +107,11 @@ export function App() {
     return Array.from(set).sort()
   }, [rawEvents])
 
+  const errorCount = useMemo(
+    () => rawEvents.reduce((n, e) => n + (eventIsError(e) ? 1 : 0), 0),
+    [rawEvents]
+  )
+
   const filteredEvents = useMemo(() => {
     const q = search.toLowerCase()
     return rawEvents.filter((e) => {
@@ -112,10 +119,18 @@ export function App() {
       if (onlyWithTools && !eventHasToolCall(e)) return false
       if (selectedTools.size > 0 && !eventMatchesTools(e, selectedTools))
         return false
+      if (onlyErrors && !eventIsError(e)) return false
       if (q && !getSearchableText(e).toLowerCase().includes(q)) return false
       return true
     })
-  }, [rawEvents, search, selectedTypes, selectedTools, onlyWithTools])
+  }, [
+    rawEvents,
+    search,
+    selectedTypes,
+    selectedTools,
+    onlyWithTools,
+    onlyErrors,
+  ])
 
   const toggleType = (t: string) => {
     setSelectedTypes((prev) => {
@@ -236,6 +251,9 @@ export function App() {
           onClearTools={clearTools}
           onlyWithTools={onlyWithTools}
           onToggleOnlyWithTools={() => setOnlyWithTools((v) => !v)}
+          onlyErrors={onlyErrors}
+          onToggleOnlyErrors={() => setOnlyErrors((v) => !v)}
+          errorCount={errorCount}
           streamCount={streams.length}
           eventCount={totalEvents}
         />

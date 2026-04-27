@@ -1,12 +1,13 @@
 {
   "name": "sse-viewer",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package": "pnpm run build && find dist -name .DS_Store -delete && rm -f sse-viewer-$npm_package_version.zip && (cd dist && zip -rq ../sse-viewer-$npm_package_version.zip . -x '*.DS_Store')"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.16",

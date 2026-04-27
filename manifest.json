@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SSE Viewer",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Inspect Server-Sent Events in a dedicated DevTools panel.",
   "minimum_chrome_version": "111",
   "devtools_page": "devtools.html",

@@ -37,6 +37,12 @@ function collectNames(value: unknown, out: Set<string>): void {
     out.add(obj.toolName)
   }
 
+  // Equity-gateway / Supio V2 wire: { tool_call: { name, state, toolUseId } }
+  const tc = obj.tool_call as Record<string, unknown> | undefined
+  if (tc && typeof tc === "object" && typeof tc.name === "string" && tc.name) {
+    out.add(tc.name)
+  }
+
   // Recurse into all values.
   for (const k in obj) collectNames(obj[k], out)
 }
@@ -65,6 +71,12 @@ function containsAnyName(value: unknown, names: Set<string>): boolean {
   // Vercel AI SDK: { toolName: "..." }
   if (typeof obj.toolName === "string" && names.has(obj.toolName)) return true
 
+  // Supio V2: { tool_call: { name } }
+  const tc = obj.tool_call as Record<string, unknown> | undefined
+  if (tc && typeof tc === "object" && typeof tc.name === "string" && names.has(tc.name)) {
+    return true
+  }
+
   for (const k in obj) if (containsAnyName(obj[k], names)) return true
   return false
 }
@@ -82,6 +94,9 @@ function hasAnyToolCall(value: unknown): boolean {
   // Vercel AI SDK: { type: "tool-input-start" | "tool-call" | "tool-result" | ... }
   if (typeof obj.type === "string" && /^tool[-_]/.test(obj.type)) return true
   if (typeof obj.toolName === "string" && obj.toolName) return true
+  // Supio V2: { tool_call: { name, ... } }
+  const tc = obj.tool_call as Record<string, unknown> | undefined
+  if (tc && typeof tc === "object" && typeof tc.name === "string" && tc.name) return true
   for (const k in obj) if (hasAnyToolCall(obj[k])) return true
   return false
 }
